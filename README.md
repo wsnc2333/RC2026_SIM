@@ -1,0 +1,2 @@
+# RC2026_SIM
+ROBOCON2026 Isaacsim 仿真环境，使用了rcbbs中重庆邮电大学HXC战队制作并分享的3D模型
