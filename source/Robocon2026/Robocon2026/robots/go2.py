@@ -6,7 +6,7 @@ from Robocon2026.utils.utils import euler2quaternion
 
 UNITREE_GO2_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"assets/go2/go2.usd",
+        usd_path=f"assets/Go2/go2.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

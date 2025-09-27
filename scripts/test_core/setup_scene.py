@@ -1,4 +1,5 @@
 import argparse
+from shlex import join
 from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(description="Create an empty scene.")
@@ -17,6 +18,10 @@ from isaaclab.utils import configclass
 from Robocon2026.robots.dofbot import DOFBOT_CONFIG
 from Robocon2026.robots.go2 import UNITREE_GO2_CFG
 from Robocon2026.robots.jetbot import JETBOT_CFG
+from Robocon2026.robots.armdog import ARMDOG_CFG
+from Robocon2026.utils.utils import euler2quaternion
+from isaaclab.sensors import ImuCfg
+from isaaclab.sensors import CameraCfg
 
 import numpy as np
 import torch
@@ -74,7 +79,7 @@ def create_KFS(color):
         kfs.append(
             AssetBaseCfg(
                 prim_path="{ENV_REGEX_NS}" + f"/r1_{color}_{idx}",
-                spawn=sim_utils.UsdFileCfg(usd_path=f"assets/map_usd/r1_{color}.usd"),
+                spawn=sim_utils.UsdFileCfg(usd_path=f"assets/KFS/r1_{color}.usd"),
                 init_state=AssetBaseCfg.InitialStateCfg(pos=pos),
             )
         )
@@ -83,7 +88,7 @@ def create_KFS(color):
     kfs.append(
         AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}" + f"/fake_{color}",
-            spawn=sim_utils.UsdFileCfg(usd_path=f"assets/map_usd/fake_{color}.usd"),
+            spawn=sim_utils.UsdFileCfg(usd_path=f"assets/KFS/fake_{color}.usd"),
             init_state=AssetBaseCfg.InitialStateCfg(pos=pos),
         )
     )
@@ -98,8 +103,8 @@ def create_KFS(color):
                 break
         kfs.append(
             AssetBaseCfg(
-                prim_path="{ENV_REGEX_NS}"+f"/r1_{color}_{idx}",
-                spawn=sim_utils.UsdFileCfg(usd_path=f"assets/map_usd/r2_{color}_{x}.usd"),
+                prim_path="{ENV_REGEX_NS}" + f"/r1_{color}_{idx}",
+                spawn=sim_utils.UsdFileCfg(usd_path=f"assets/KFS/r2_{color}_{x}.usd"),
                 init_state=AssetBaseCfg.InitialStateCfg(pos=pos),
             )
         )
@@ -128,19 +133,41 @@ class SceneCfg(InteractiveSceneCfg):
     # 创建 Robocon 2026 地图
     Robocon2026map = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Robocon2026Map",
-        spawn=sim_utils.UsdFileCfg(usd_path="assets/map_usd/robocon2026.usd"),
+        spawn=sim_utils.UsdFileCfg(usd_path="assets/Map/robocon2026.usd"),
     )
     # 创建 Dofbot
-    Dofbot = DOFBOT_CONFIG.replace(
-        prim_path="{ENV_REGEX_NS}/Dofbot" 
-    )
+    # Dofbot = DOFBOT_CONFIG.replace(
+    #     prim_path="{ENV_REGEX_NS}/Dofbot"
+    # )
     # 创建 Go2
-    Go2 = UNITREE_GO2_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Go2"
-    )
+    # Go2 = UNITREE_GO2_CFG.replace(
+    #     prim_path="{ENV_REGEX_NS}/Go2"
+    # )
     # 创建 Jetbot
-    Jetbot = JETBOT_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Jetbot"
+    # Jetbot = JETBOT_CFG.replace(
+    #     prim_path="{ENV_REGEX_NS}/Jetbot"
+    # )
+
+    # 创建ArmDog
+    Armdog = ARMDOG_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/ArmDog",
+    )
+    Imu = ImuCfg(prim_path="{ENV_REGEX_NS}/ArmDog/go2/imu", debug_vis=True)
+    Camera = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/ArmDog/go2/base/camera",
+        update_period=0.1,
+        height=480,
+        width=640,
+        data_types=["rgb", "distance_to_image_plane"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0,
+            focus_distance=400.0,
+            horizontal_aperture=20.955,
+            clipping_range=(0.1, 1.0e5),
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.510, 0.0, 0.015), rot=(0.5, -0.5, 0.5, -0.5), convention="ros"
+        ),
     )
     # 创建 KFS
     RedKFS1, RedKFS2, RedKFS3, RedKFS4, RedKFS5, RedKFS6, RedKFS7, RedKFS8 = create_KFS("red")
@@ -152,76 +179,37 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     count = 0
 
     while simulation_app.is_running():
-        if count % 7000 == 0:
+        if count % 1000 == 0:
             count = 0
-            
-            root_jetbot_state = scene[
-                "Jetbot"
-            ].data.default_root_state.clone()
-            root_jetbot_state[:, :3] += scene.env_origins
-            root_dofbot_state = scene[
-                "Dofbot"
-            ].data.default_root_state.clone()
-            root_dofbot_state[:, :3] += scene.env_origins
 
-            scene["Jetbot"].write_root_pose_to_sim(
-                root_jetbot_state[:, :7]
-            )
-            scene["Jetbot"].write_root_velocity_to_sim(
-                root_jetbot_state[:, 7:]
-            )
-            scene["Dofbot"].write_root_pose_to_sim(
-                root_dofbot_state[:, :7]
-            )
-            scene["Dofbot"].write_root_velocity_to_sim(
-                root_dofbot_state[:, 7:]
-            )
-
+            root_armdog_state = scene["Armdog"].data.default_root_state.clone()
+            root_armdog_state[:, :3] += scene.env_origins
+            scene["Armdog"].write_root_pose_to_sim(root_armdog_state[:, :7])
+            scene["Armdog"].write_root_velocity_to_sim(root_armdog_state[:, 7:])
             joint_pos, joint_vel = (
-                scene[
-                    "Jetbot"
-                ].data.default_joint_pos.clone(),
-                scene[
-                    "Jetbot"
-                ].data.default_joint_vel.clone(),
+                scene["Armdog"].data.default_joint_pos.clone(),
+                scene["Armdog"].data.default_joint_vel.clone(),
             )
-            scene["Jetbot"].write_joint_state_to_sim(
-                joint_pos, joint_vel
-            )
-            joint_pos, joint_vel = (
-                scene[
-                    "Dofbot"
-                ].data.default_joint_pos.clone(), 
-                scene[
-                    "Dofbot"
-                ].data.default_joint_vel.clone(),
-            )
-            scene["Dofbot"].write_joint_state_to_sim(
-                joint_pos, joint_vel
-            )
+            scene["Armdog"].write_joint_state_to_sim(joint_pos, joint_vel)
 
             scene.reset()
             print("[INFO]: Resetting Jetbot and Dofbot state ...")
-
-        if count % 1750 < 1700:
-            action = torch.Tensor([10.0, 10.0])
-        else:
-            action = torch.Tensor([5.0, -5.0]) 
-        scene["Jetbot"].set_joint_velocity_target(action)
-
-        wave_action = scene[
-            "Dofbot"
-        ].data.default_joint_pos
-        wave_action[:, 0:4] = 0.25 * np.sin(
-            2 * np.pi * 0.5 * sim_time
-        )
-        scene["Dofbot"].set_joint_position_target(wave_action)
 
         scene.write_data_to_sim()
         sim.step()
         sim_time += sim_dt
         count += 1
         scene.update(sim_dt)
+        print("-------------------------------")
+        print(scene["Imu"])
+        print("Received linear velocity: ", scene["Imu"].data.lin_vel_b)
+        print("Received angular velocity: ", scene["Imu"].data.ang_vel_b)
+        print("Received linear acceleration: ", scene["Imu"].data.lin_acc_b)
+        print("Received angular acceleration: ", scene["Imu"].data.ang_acc_b)
+        print("-------------------------------")
+        print(scene["Camera"])
+        print("Received shape of rgb   image: ", scene["Camera"].data.output["rgb"].shape)
+        print("Received shape of depth image: ", scene["Camera"].data.output["distance_to_image_plane"].shape)
 
 
 def main():
@@ -230,13 +218,13 @@ def main():
 
     sim.set_camera_view([15.0, 15.0, 10.0], [0.0, 0.0, 0.0])
 
-    scene_cfg = SceneCfg(args_cli.num_envs, env_spacing=20.0) 
+    scene_cfg = SceneCfg(args_cli.num_envs, env_spacing=20.0)
     scene = InteractiveScene(scene_cfg)
 
     sim.reset()
     print("[INFO]: Setup complete ...")
 
-    run_simulator(sim, scene) 
+    run_simulator(sim, scene)
 
 
 if __name__ == "__main__":
