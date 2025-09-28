@@ -4,7 +4,7 @@ from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(description="Create an empty scene.")
 AppLauncher.add_app_launcher_args(parser)
-parser.add_argument("--num_envs", type=int, default=1, help="number of environments to create")
+parser.add_argument("--num_envs", type=int, default=9, help="number of environments to create")
 args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -15,6 +15,7 @@ from isaaclab.assets import AssetBaseCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.utils import configclass
 
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from Robocon2026.robots.dofbot import DOFBOT_CONFIG
 from Robocon2026.robots.go2 import UNITREE_GO2_CFG
 from Robocon2026.robots.jetbot import JETBOT_CFG
@@ -122,12 +123,19 @@ class SceneCfg(InteractiveSceneCfg):
     #     ),
     # )
     # 创建远光灯
-    Distantlight = AssetBaseCfg(
-        prim_path="/World/Light",
-        spawn=sim_utils.DistantLightCfg(
-            intensity=3000.0,
-            color=(0.75, 0.75, 0.75),
-            angle=20.0,
+    # Distantlight = AssetBaseCfg(
+    #     prim_path="/World/Light",
+    #     spawn=sim_utils.DistantLightCfg(
+    #         intensity=3000.0,
+    #         color=(0.75, 0.75, 0.75),
+    #         angle=20.0,
+    #     ),
+    # )
+    sky_light = AssetBaseCfg(
+        prim_path="/World/skyLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=750.0,
+            texture_file="assets/Matrials/kloofendal_43d_clear_puresky_4k.hdr",
         ),
     )
     # 创建 Robocon 2026 地图
@@ -152,23 +160,23 @@ class SceneCfg(InteractiveSceneCfg):
     Armdog = ARMDOG_CFG.replace(
         prim_path="{ENV_REGEX_NS}/ArmDog",
     )
-    Imu = ImuCfg(prim_path="{ENV_REGEX_NS}/ArmDog/go2/imu", debug_vis=True)
-    Camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/ArmDog/go2/base/camera",
-        update_period=0.1,
-        height=480,
-        width=640,
-        data_types=["rgb", "distance_to_image_plane"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0,
-            focus_distance=400.0,
-            horizontal_aperture=20.955,
-            clipping_range=(0.1, 1.0e5),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.510, 0.0, 0.015), rot=(0.5, -0.5, 0.5, -0.5), convention="ros"
-        ),
-    )
+    # Imu = ImuCfg(prim_path="{ENV_REGEX_NS}/ArmDog/imu", debug_vis=True)
+    # Camera = CameraCfg(
+    #     prim_path="{ENV_REGEX_NS}/ArmDog/base/camera",
+    #     update_period=0.1,
+    #     height=480,
+    #     width=640,
+    #     data_types=["rgb", "distance_to_image_plane"],
+    #     spawn=sim_utils.PinholeCameraCfg(
+    #         focal_length=24.0,
+    #         focus_distance=400.0,
+    #         horizontal_aperture=20.955,
+    #         clipping_range=(0.1, 1.0e5),
+    #     ),
+    #     offset=CameraCfg.OffsetCfg(
+    #         pos=(0.510, 0.0, 0.015), rot=(0.5, -0.5, 0.5, -0.5), convention="ros"
+    #     ),
+    # )
     # 创建 KFS
     RedKFS1, RedKFS2, RedKFS3, RedKFS4, RedKFS5, RedKFS6, RedKFS7, RedKFS8 = create_KFS("red")
     BlueKFS1, BlueKFS2, BlueKFS3, BlueKFS4, BlueKFS5, BlueKFS6, BlueKFS7, BlueKFS8 = create_KFS("blue")
@@ -200,16 +208,16 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         sim_time += sim_dt
         count += 1
         scene.update(sim_dt)
-        print("-------------------------------")
-        print(scene["Imu"])
-        print("Received linear velocity: ", scene["Imu"].data.lin_vel_b)
-        print("Received angular velocity: ", scene["Imu"].data.ang_vel_b)
-        print("Received linear acceleration: ", scene["Imu"].data.lin_acc_b)
-        print("Received angular acceleration: ", scene["Imu"].data.ang_acc_b)
-        print("-------------------------------")
-        print(scene["Camera"])
-        print("Received shape of rgb   image: ", scene["Camera"].data.output["rgb"].shape)
-        print("Received shape of depth image: ", scene["Camera"].data.output["distance_to_image_plane"].shape)
+        # print("-------------------------------")
+        # print(scene["Imu"])
+        # print("Received linear velocity: ", scene["Imu"].data.lin_vel_b)
+        # print("Received angular velocity: ", scene["Imu"].data.ang_vel_b)
+        # print("Received linear acceleration: ", scene["Imu"].data.lin_acc_b)
+        # print("Received angular acceleration: ", scene["Imu"].data.ang_acc_b)
+        # print("-------------------------------")
+        # print(scene["Camera"])
+        # print("Received shape of rgb   image: ", scene["Camera"].data.output["rgb"].shape)
+        # print("Received shape of depth image: ", scene["Camera"].data.output["distance_to_image_plane"].shape)
 
 
 def main():

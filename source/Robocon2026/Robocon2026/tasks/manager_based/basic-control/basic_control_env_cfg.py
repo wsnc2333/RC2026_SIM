@@ -22,32 +22,29 @@ from . import mdp
 ##
 # Pre-defined configs
 ##
-from Robocon2026.map.kfs import create_KFS
 from Robocon2026.robots.armdog import ARMDOG_CFG
 from isaaclab.sensors import ImuCfg
 from isaaclab.sensors import CameraCfg
-##
-# utils
-##
-from Robocon2026.utils.utils import euler2quaternion
+from isaaclab.terrains import TerrainImporterCfg
 
 ##
 # Scene definition
 ##
-
-
 @configclass
-class Robocon2026SceneCfg(InteractiveSceneCfg):
-    """Configuration for a cart-pole scene."""
-    # 创建穹顶灯光
-    # Domelight = AssetBaseCfg(
-    #     prim_path="/World/Light",
-    #     spawn=sim_utils.DomeLightCfg(
-    #         intensity=3000.0,
-    #         color=(0.75, 0.75, 0.75),
-    #     ),
-    # )
-    # 创建远光灯
+class BasicControlSceneCfg(InteractiveSceneCfg):
+    """Configuration for the Armdog walking/basic_control scene."""
+
+    # terrain
+    terrain = TerrainImporterCfg(
+        prim_path="/World/ground",
+        terrain_type="plane",
+        collision_group=-1,
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            static_friction=1.0, dynamic_friction=1.0, restitution=0.0
+        ),
+        debug_vis=False,
+    )
+    # Distant light
     Distantlight = AssetBaseCfg(
         prim_path="/World/Light",
         spawn=sim_utils.DistantLightCfg(
@@ -56,13 +53,8 @@ class Robocon2026SceneCfg(InteractiveSceneCfg):
             angle=20.0,
         ),
     )
-    # 创建 Robocon 2026 地图
-    Robocon2026map = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Robocon2026Map",
-        spawn=sim_utils.UsdFileCfg(usd_path="assets/Map/robocon2026.usd"),
-    )
-    # 创建ArmDog
-    Armdog = ARMDOG_CFG.replace(
+    # ArmDog articulation
+    robot = ARMDOG_CFG.replace(
         prim_path="{ENV_REGEX_NS}/ArmDog",
     )
     Imu = ImuCfg(prim_path="{ENV_REGEX_NS}/ArmDog/go2/imu", debug_vis=True)
@@ -82,23 +74,49 @@ class Robocon2026SceneCfg(InteractiveSceneCfg):
             pos=(0.510, 0.0, 0.015), rot=(0.5, -0.5, 0.5, -0.5), convention="ros"
         ),
     )
-    # 创建 KFS
-    RedKFS1, RedKFS2, RedKFS3, RedKFS4,\
-    RedKFS5, RedKFS6, RedKFS7, RedKFS8 = create_KFS("red")
-    BlueKFS1, BlueKFS2, BlueKFS3, BlueKFS4, \
-    BlueKFS5, BlueKFS6, BlueKFS7, BlueKFS8 = create_KFS("blue")
 
 
 ##
 # MDP settings
 ##
-
-
 @configclass
 class ActionsCfg:
     """Action specifications for the MDP."""
+    # TODO: 添加动作项
+    joint_pos = mdp.JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=[".*"],
+        scale={
+            # Go2腿部
+            ".*_hip_joint": 0.25,
+            ".*_thigh_joint": 0.25,
+            ".*_calf_joint": 0.25,
+        },
+        use_default_offset=True,
+        preserve_order=True,
+    )
 
-    joint_effort = mdp.JointEffortActionCfg(asset_name="robot", joint_names=["slider_to_cart"], scale=100.0)
+    arm_pos = mdp.JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=[
+            ".*_shoulder_pan",
+            ".*_shoulder_lift",
+            ".*_elbow_flex",
+            ".*_wrist_flex",
+            ".*_wrist_roll",
+            ".*_gripper",
+        ],
+        scale={
+            ".*_shoulder_pan": 0.5,
+            ".*_shoulder_lift": 0.5,
+            ".*_elbow_flex": 0.5,
+            ".*_wrist_flex": 0.5,
+            ".*_wrist_roll": 0.5,
+            ".*_gripper": 0.5,
+        },
+        use_default_offset=True,
+        preserve_order=True,
+    )
 
 
 @configclass
@@ -109,9 +127,7 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        # observation terms (order preserved)
-        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
-        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel)
+        # TODO: 添加观察项
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
@@ -123,28 +139,9 @@ class ObservationsCfg:
 
 @configclass
 class EventCfg:
-    """Configuration for events."""
-
-    # reset
-    reset_cart_position = EventTerm(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=["slider_to_cart"]),
-            "position_range": (-1.0, 1.0),
-            "velocity_range": (-0.5, 0.5),
-        },
-    )
-
-    reset_pole_position = EventTerm(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole"]),
-            "position_range": (-0.25 * math.pi, 0.25 * math.pi),
-            "velocity_range": (-0.25 * math.pi, 0.25 * math.pi),
-        },
-    )
+    """Configuration for events (resets)."""
+    # TODO: 添加 reset 项
+    pass
 
 
 @configclass
@@ -155,24 +152,7 @@ class RewardsCfg:
     alive = RewTerm(func=mdp.is_alive, weight=1.0)
     # (2) Failure penalty
     terminating = RewTerm(func=mdp.is_terminated, weight=-2.0)
-    # (3) Primary task: keep pole upright
-    pole_pos = RewTerm(
-        func=mdp.joint_pos_target_l2,
-        weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole"]), "target": 0.0},
-    )
-    # (4) Shaping tasks: lower cart velocity
-    cart_vel = RewTerm(
-        func=mdp.joint_vel_l1,
-        weight=-0.01,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["slider_to_cart"])},
-    )
-    # (5) Shaping tasks: lower pole angular velocity
-    pole_vel = RewTerm(
-        func=mdp.joint_vel_l1,
-        weight=-0.005,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole"])},
-    )
+    # TODO: 添加更多奖励项
 
 
 @configclass
@@ -181,38 +161,52 @@ class TerminationsCfg:
 
     # (1) Time out
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    # (2) Cart out of bounds
-    cart_out_of_bounds = DoneTerm(
-        func=mdp.joint_pos_out_of_manual_limit,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["slider_to_cart"]), "bounds": (-3.0, 3.0)},
-    )
+
+
+@configclass
+class CurriculumCfg:
+    """Curriculum terms for the MDP."""
+    # TODO: 添加 curricula 项
+    pass
+
+
+@configclass
+class CommandsCfg:
+    """Command specifications for the MDP."""
+    # TODO: 添加 command 项
+    pass
 
 
 ##
 # Environment configuration
 ##
-
-
 @configclass
-class Robocon2026EnvCfg(ManagerBasedRLEnvCfg):
+class BasicControlEnvCfg(ManagerBasedRLEnvCfg):
     # Scene settings
-    scene: Robocon2026SceneCfg = Robocon2026SceneCfg(num_envs=4096, env_spacing=4.0)
-    # Basic settings
+    scene: BasicControlSceneCfg = BasicControlSceneCfg(
+        num_envs=4096, env_spacing=4.0#, clone_in_fabric=True
+    )
+
+    # Basic MDP settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     events: EventCfg = EventCfg()
-    # MDP settings
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
 
     # Post initialization
     def __post_init__(self) -> None:
-        """Post initialization."""
-        # general settings
-        self.decimation = 2
-        self.episode_length_s = 5
+        """Post initialization and simulation tuning for walking."""
+        # control settings
+        self.decimation = 2  # 控制频率 = sim.dt * decimation
+        self.episode_length_s = 20  # 稍长的 episode 以便学习步态
         # viewer settings
-        self.viewer.eye = (8.0, 0.0, 5.0)
+        self.viewer.eye = (8.0, 0.0, 3.0)
         # simulation settings
         self.sim.dt = 1 / 120
         self.sim.render_interval = self.decimation
+        self.sim.physx.bounce_threshold_velocity = 0.2
+        # default friction material
+        self.sim.physics_material.static_friction = 1.0
+        self.sim.physics_material.dynamic_friction = 1.0
+        self.sim.physics_material.restitution = 0.0
