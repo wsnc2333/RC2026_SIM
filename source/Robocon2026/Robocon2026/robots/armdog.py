@@ -27,8 +27,9 @@ ARMDOG_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(5.45, 5.575, 0.4),
-        rot=euler2quaternion([-90, 0, 0]),
+        pos=(0.0, 0.0, 0.4),
+        # pos=(5.45, 5.575, 0.4),
+        # rot=euler2quaternion([-90, 0, 0]),
         joint_pos={
             # Go2腿部
             ".*L_hip_joint": 0.1,

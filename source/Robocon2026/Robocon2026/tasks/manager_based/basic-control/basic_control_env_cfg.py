@@ -26,6 +26,7 @@ from . import mdp
 # Pre-defined configs
 ##
 from Robocon2026.robots.armdog import ARMDOG_CFG
+# from Robocon2026.robots.go2 import UNITREE_GO2_CFG
 from isaaclab.sensors import ImuCfg, CameraCfg, ContactSensorCfg, RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from Robocon2026.map.terrains import TERRAINS_CFG
@@ -60,13 +61,12 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
 
-    # Distant light
-    Distantlight = AssetBaseCfg(
-        prim_path="/World/Light",
-        spawn=sim_utils.DistantLightCfg(
-            intensity=3000.0,
-            color=(0.75, 0.75, 0.75),
-            angle=20.0,
+    # * 创建天空
+    sky_light = AssetBaseCfg(
+        prim_path="/World/skyLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=750.0,
+            texture_file="assets/Matrials/kloofendal_43d_clear_puresky_4k.hdr",
         ),
     )
     # ArmDog articulation
@@ -122,36 +122,35 @@ class ActionsCfg:
         asset_name="robot",
         joint_names=[".*"],
         scale={
-            # Go2腿部
-            ".*_hip_joint": 0.25,
-            ".*_thigh_joint": 0.25,
-            ".*_calf_joint": 0.25,
+            ".*_hip_joint": 0.5,
+            ".*_thigh_joint": 0.5,
+            ".*_calf_joint": 0.5,
         },
         use_default_offset=True,
-        preserve_order=True,
+        # preserve_order=True,
     )
 
-    arm_pos = mdp.JointPositionActionCfg(
-        asset_name="robot",
-        joint_names=[
-            ".*_shoulder_pan",
-            ".*_shoulder_lift",
-            ".*_elbow_flex",
-            ".*_wrist_flex",
-            ".*_wrist_roll",
-            ".*_gripper",
-        ],
-        scale={
-            ".*_shoulder_pan": 0.5,
-            ".*_shoulder_lift": 0.5,
-            ".*_elbow_flex": 0.5,
-            ".*_wrist_flex": 0.5,
-            ".*_wrist_roll": 0.5,
-            ".*_gripper": 0.5,
-        },
-        use_default_offset=True,
-        preserve_order=True,
-    )
+    # arm_pos = mdp.JointPositionActionCfg(
+    #     asset_name="robot",
+    #     joint_names=[
+    #         ".*_shoulder_pan",
+    #         ".*_shoulder_lift",
+    #         ".*_elbow_flex",
+    #         ".*_wrist_flex",
+    #         ".*_wrist_roll",
+    #         ".*_gripper",
+    #     ],
+    #     scale={
+    #         ".*_shoulder_pan": 0.5,
+    #         ".*_shoulder_lift": 0.5,
+    #         ".*_elbow_flex": 0.5,
+    #         ".*_wrist_flex": 0.5,
+    #         ".*_wrist_roll": 0.5,
+    #         ".*_gripper": 0.5,
+    #     },
+    #     use_default_offset=True,
+    #     preserve_order=True,
+    # )
 
 
 @configclass
@@ -189,7 +188,7 @@ class ObservationsCfg:
         )
 
         def __post_init__(self) -> None:
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = True
 
     # observation groups
@@ -206,8 +205,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.5, 4.0),
-            "dynamic_friction_range": (0.5, 2.0),
+            "static_friction_range": (0.8, 0.8),
+            "dynamic_friction_range": (0.6, 0.6),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -218,7 +217,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "mass_distribution_params": (-3.0, 3.0),
+            "mass_distribution_params": (-5.0, 5.0),
             "operation": "add",
         },
     )
@@ -232,15 +231,15 @@ class EventCfg:
         },
     )
 
-    add_ee_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_gripper"),
-            "mass_distribution_params": (-0.1, 0.5),
-            "operation": "add",
-        },
-    )
+    # add_ee_mass = EventTerm(
+    #     func=mdp.randomize_rigid_body_mass,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_gripper"),
+    #         "mass_distribution_params": (-0.1, 0.5),
+    #         "operation": "add",
+    #     },
+    # )
 
     # * reset
     base_external_force_torque = EventTerm(
@@ -269,16 +268,16 @@ class EventCfg:
         },
     )
 
-    actuator_gains = EventTerm(
-        func=mdp.randomize_actuator_gains,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "stiffness_distribution_params": (0.8, 1.2),
-            "damping_distribution_params": (0.8, 1.2),
-            "operation": "scale",
-        },
-    )
+    # actuator_gains = EventTerm(
+    #     func=mdp.randomize_actuator_gains,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+    #         "stiffness_distribution_params": (0.8, 1.2),
+    #         "damping_distribution_params": (0.8, 1.2),
+    #         "operation": "scale",
+    #     },
+    # )
 
     reset_robot_joints = EventTerm(
         func=mdp.reset_joints_by_scale,
@@ -402,12 +401,12 @@ class BasicControlEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self) -> None:
         """Post initialization and simulation tuning for walking."""
         # control settings
-        self.decimation = 4  # 控制频率 = sim.dt * decimation
-        self.episode_length_s = 20  # 稍长的 episode 以便学习步态
+        self.decimation = 4 
+        self.episode_length_s = 20
         # viewer settings
         self.viewer.eye = (8.0, 0.0, 3.0)
         # simulation settings
-        self.sim.dt = 1 / 120
+        self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
         # self.sim.physx.bounce_threshold_velocity = 0.2
         # # default friction material
@@ -533,7 +532,7 @@ class ArmDogFlatEnvCfg(ArmDogRoughEnvCfg):
         self.curriculum.terrain_levels = None
 
 
-class ArmDogFlatEnvCfg_PLAY(ArmDogRoughEnvCfg):
+class ArmDogFlatEnvCfg_PLAY(ArmDogFlatEnvCfg):
     def __post_init__(self) -> None:
         # post init of parent
         super().__post_init__()
