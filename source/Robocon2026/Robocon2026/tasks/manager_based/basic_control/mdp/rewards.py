@@ -114,3 +114,37 @@ def stand_still_joint_deviation_l1(
     command = env.command_manager.get_command(command_name)
     # Penalize motion when command is nearly zero.
     return mdp.joint_deviation_l1(env, asset_cfg) * (torch.norm(command[:, :2], dim=1) < command_threshold)
+
+
+def base_height_penalty(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    min_height: float = 0.2,
+    penalty_weight: float = 1.0,
+) -> torch.Tensor:
+    """Penalize the robot for having its base too close to the ground (crawling behavior).
+
+    This function penalizes the agent when the robot's base height is below a threshold,
+    which helps prevent the robot from learning to crawl on its belly instead of walking.
+
+    Args:
+        env: The environment instance.
+        asset_cfg: Configuration for the robot asset.
+        min_height: Minimum allowed height for the robot base.
+        penalty_weight: Scaling factor for the penalty.
+
+    Returns:
+        A tensor of penalty values for each environment.
+    """
+    # Extract the robot asset
+    asset = env.scene[asset_cfg.name]
+
+    # Get the base height (z-coordinate of the base)
+    base_height = asset.data.root_pos_w[:, 2]
+
+    # Calculate penalty for heights below the minimum
+    # Penalty is positive when height is below threshold, zero otherwise
+    penalty = torch.clamp(min_height - base_height, min=0.0)
+
+    # Apply penalty weight
+    return penalty * penalty_weight

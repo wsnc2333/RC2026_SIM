@@ -127,7 +127,7 @@ class ActionsCfg:
             ".*_calf_joint": 0.5,
         },
         use_default_offset=True,
-        # preserve_order=True,
+        preserve_order=True,
     )
 
     # arm_pos = mdp.JointPositionActionCfg(
@@ -231,15 +231,15 @@ class EventCfg:
         },
     )
 
-    # add_ee_mass = EventTerm(
-    #     func=mdp.randomize_rigid_body_mass,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_gripper"),
-    #         "mass_distribution_params": (-0.1, 0.5),
-    #         "operation": "add",
-    #     },
-    # )
+    add_ee_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_gripper"),
+            "mass_distribution_params": (0.0, 0.5),
+            "operation": "add",
+        },
+    )
 
     # * reset
     base_external_force_torque = EventTerm(
@@ -302,22 +302,30 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # -- task
+    # 奖励机器人跟踪xy平面线速度命令的表现
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_exp,
         weight=1.0,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
+    # 奖励机器人跟踪绕z轴角速度命令的表现
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp,
         weight=0.5,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
     # -- penalties
+    # 惩罚机器人在z轴方向的线速度（避免不必要的上下运动）
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
+    # 惩罚机器人绕x、y轴的角速度（避免翻滚和俯仰）
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+    # 惩罚关节力矩，鼓励节能的动作
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    # 惩罚关节加速度，鼓励平滑的动作
     dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
+    # 惩罚动作变化率，鼓励动作的连续性和平滑性
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    # 奖励足部离地时间，鼓励机器人抬脚行走
     feet_air_time = RewTerm(
         func=mdp.feet_air_time,
         weight=0.125,
@@ -327,6 +335,7 @@ class RewardsCfg:
             "threshold": 0.5,
         },
     )
+    # 惩罚大腿等非足部部件与地面的接触
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
@@ -336,8 +345,25 @@ class RewardsCfg:
         },
     )
     # -- optional penalties
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
-    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
+    # 惩罚机器人偏离水平姿态
+    flat_orientation_l2 = RewTerm(
+        func=mdp.flat_orientation_l2, 
+        weight=0.0
+    )
+    # 惩罚接近关节位置极限的情况
+    dof_pos_limits = RewTerm(
+        func=mdp.joint_pos_limits, 
+        weight=0.01
+    )
+    # 惩罚机器人身体高度过低（接近爬行）的行为
+    base_height_penalty = RewTerm(
+        func=mdp.base_height_penalty,
+        weight=-1.0,
+        params={
+            "min_height": 0.2,
+            "penalty_weight": 1.0,
+        },
+    )
 
 
 @configclass
