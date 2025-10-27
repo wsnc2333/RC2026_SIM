@@ -41,7 +41,7 @@ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 class BasicControlSceneCfg(InteractiveSceneCfg):
     """Configuration for the Armdog walking/basic_control scene."""
 
-    # terrain
+    #* 地形
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
@@ -62,7 +62,7 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
 
-    # * 创建天空
+    #* 天空
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
         spawn=sim_utils.DomeLightCfg(
@@ -70,37 +70,15 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
             texture_file="assets/Matrials/kloofendal_43d_clear_puresky_4k.hdr",
         ),
     )
-    # ArmDog articulation
-    # robot = ARMDOG_CFG.replace(
-    #     prim_path="{ENV_REGEX_NS}/ArmDog",
-    # )
-    # Imu = ImuCfg(
-    #     prim_path="{ENV_REGEX_NS}/ArmDog/base",
-    #     debug_vis=True
-    # )
-    # Camera = CameraCfg(
-    #     prim_path="{ENV_REGEX_NS}/ArmDog/base/camera",
-    #     update_period=0.1,
-    #     height=480,
-    #     width=640,
-    #     data_types=["rgb", "distance_to_image_plane"],
-    #     spawn=sim_utils.PinholeCameraCfg(
-    #         focal_length=24.0,
-    #         focus_distance=400.0,
-    #         horizontal_aperture=20.955,
-    #         clipping_range=(0.1, 1.0e5),
-    #     ),
-    #     offset=CameraCfg.OffsetCfg(
-    #         pos=(0.510, 0.0, 0.015), rot=(0.5, -0.5, 0.5, -0.5), convention="ros"
-    #     ),
-    # )
+
+    #* 机器人及传感器
     robot: ArticulationCfg = MISSING
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/ArmDog/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
-        debug_vis=False,
+        debug_vis=True,
         mesh_prim_paths=["/World/ground"],
     )
     contact_forces = ContactSensorCfg(
@@ -110,10 +88,10 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
         debug_vis=True,
         update_period=0.0,
     )
-    # imu = ImuCfg(
-    #     prim_path="{ENV_REGEX_NS}/ArmDog/base",
-    #     debug_vis=True
-    # )
+    imu = ImuCfg(
+        prim_path="{ENV_REGEX_NS}/ArmDog/imu",
+        debug_vis=True
+    )
 
 
 ##
@@ -155,10 +133,10 @@ class ObservationsCfg:
         base_ang_vel = ObsTerm(
             func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2)
         )
-        projected_gravity = ObsTerm(
-            func=mdp.projected_gravity,
-            noise=Unoise(n_min=-0.05, n_max=0.05),
-        )
+        # projected_gravity = ObsTerm(
+        #     func=mdp.projected_gravity,
+        #     noise=Unoise(n_min=-0.05, n_max=0.05),
+        # )
         velocity_commands = ObsTerm(
             func=mdp.generated_commands, params={"command_name": "base_velocity"}
         )
@@ -173,16 +151,21 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.1, n_max=0.1),
             clip=(-1.0, 1.0),
         )
-        # imu_gyro = ObsTerm(
-        #     func=mdp.imu_ang_vel,
-        #     params={"asset_cfg": SceneEntityCfg("imu")},
-        #     noise=Unoise(n_min=-0.01, n_max=0.01)
-        # )
-        # imu_accel = ObsTerm(
-        #     func=mdp.imu_lin_acc,
-        #     params={"asset_cfg": SceneEntityCfg("imu")},
-        #     noise=Unoise(n_min=-0.1, n_max=0.1)
-        # )
+        imu_gyro = ObsTerm(
+            func=mdp.imu_ang_vel,
+            params={"asset_cfg": SceneEntityCfg("imu")},
+            noise=Unoise(n_min=-0.01, n_max=0.01)
+        )
+        imu_accel = ObsTerm(
+            func=mdp.imu_lin_acc,
+            params={"asset_cfg": SceneEntityCfg("imu")},
+            noise=Unoise(n_min=-0.1, n_max=0.1)
+        )
+        imu_projected_gravity = ObsTerm(
+            func=mdp.imu_projected_gravity,
+            params={"asset_cfg": SceneEntityCfg("imu")},
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
 
         def __post_init__(self) -> None:
             self.enable_corruption = True
@@ -357,26 +340,9 @@ class RewardsCfg:
         func=mdp.base_height_penalty,
         weight=-0.1,
         params={
-            "min_height": 0.2,
+            "min_height": 0.15,
         },
     )
-    # # 基于地形高度的基座高度惩罚：使用 height_scanner 的 ray_hits 计算局部地形高度
-    # base_height_above_terrain = RewTerm(
-    #     func=mdp.base_height_above_terrain,
-    #     weight=-1.0,
-    #     params={
-    #         "sensor_cfg": SceneEntityCfg("height_scanner"),
-    #         "min_height": 0.18
-    #     },
-    # )
-    # # 惩罚脚滑（当脚接触地面且有滑移时）
-    # feet_slide = RewTerm(
-    #     func=mdp.feet_slide,
-    #     weight=-0.05,
-    #     params={
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*foot"),
-    #     },
-    # )
 
 
 @configclass
@@ -385,13 +351,6 @@ class TerminationsCfg:
 
     # (1) Time out
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    base_contact = DoneTerm(
-        func=mdp.illegal_contact,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"),
-            "threshold": 1.0,
-        },
-    )
     # (2) Base contact
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
@@ -400,7 +359,7 @@ class TerminationsCfg:
             "threshold": 1.0,
         },
     )
-    # (2) Arm contact
+    # (3) Arm contact
     arm_contact = DoneTerm(
         func=mdp.illegal_contact,
         params={
@@ -502,18 +461,10 @@ class ArmDogRoughEnvCfg(BasicControlEnvCfg):
         self.scene.num_envs = 3800
 
         self.scene.robot = ARMDOG_SINGLE_CFG.replace(prim_path="{ENV_REGEX_NS}/ArmDog")
-        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/ArmDog/base"
-        # scale down the terrains because the robot is small
-        # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (
-        #     0.025,
-        #     0.1,
-        # )
-        # self.scene.terrain.terrain_generator.sub_terrains[
-        #     "random_rough"
-        # ].noise_range = (0.01, 0.06)
-        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = (
-        #     0.01
-        # )
+        # self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/ArmDog/base"
+        # no height scan
+        self.scene.height_scanner = None
+        self.observations.policy.height_scan = None
 
         # reduce action scale
         self.actions.joint_pos.scale = 0.25
