@@ -25,8 +25,9 @@ from . import mdp
 ##
 # Pre-defined configs
 ##
-from Robocon2026.robots.armdog import ARMDOG_CFG
+from Robocon2026.robots.armdog_single import ARMDOG_SINGLE_CFG
 # from Robocon2026.robots.go2 import UNITREE_GO2_CFG
+# from Robocon2026.robots.pikadog import PIKADOG_CFG
 from isaaclab.sensors import ImuCfg, CameraCfg, ContactSensorCfg, RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from Robocon2026.map.terrains import TERRAINS_CFG
@@ -44,7 +45,7 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=ROUGH_TERRAINS_CFG,
+        terrain_generator=TERRAINS_CFG,
         max_init_terrain_level=5,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -74,7 +75,7 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
     #     prim_path="{ENV_REGEX_NS}/ArmDog",
     # )
     # Imu = ImuCfg(
-    #     prim_path="{ENV_REGEX_NS}/ArmDog/imu",
+    #     prim_path="{ENV_REGEX_NS}/ArmDog/base",
     #     debug_vis=True
     # )
     # Camera = CameraCfg(
@@ -109,6 +110,10 @@ class BasicControlSceneCfg(InteractiveSceneCfg):
         debug_vis=True,
         update_period=0.0,
     )
+    # imu = ImuCfg(
+    #     prim_path="{ENV_REGEX_NS}/ArmDog/base",
+    #     debug_vis=True
+    # )
 
 
 ##
@@ -121,33 +126,15 @@ class ActionsCfg:
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=[".*"],
-        scale={
-            ".*_hip_joint": 0.5,
-            ".*_thigh_joint": 0.5,
-            ".*_calf_joint": 0.5,
-        },
+        scale=0.5,
         use_default_offset=True,
         preserve_order=True,
     )
 
     # arm_pos = mdp.JointPositionActionCfg(
     #     asset_name="robot",
-    #     joint_names=[
-    #         ".*_shoulder_pan",
-    #         ".*_shoulder_lift",
-    #         ".*_elbow_flex",
-    #         ".*_wrist_flex",
-    #         ".*_wrist_roll",
-    #         ".*_gripper",
-    #     ],
-    #     scale={
-    #         ".*_shoulder_pan": 0.5,
-    #         ".*_shoulder_lift": 0.5,
-    #         ".*_elbow_flex": 0.5,
-    #         ".*_wrist_flex": 0.5,
-    #         ".*_wrist_roll": 0.5,
-    #         ".*_gripper": 0.5,
-    #     },
+    #     joint_names=[".*"],
+    #     scale=0.5,
     #     use_default_offset=True,
     #     preserve_order=True,
     # )
@@ -186,6 +173,16 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.1, n_max=0.1),
             clip=(-1.0, 1.0),
         )
+        # imu_gyro = ObsTerm(
+        #     func=mdp.imu_ang_vel,
+        #     params={"asset_cfg": SceneEntityCfg("imu")},
+        #     noise=Unoise(n_min=-0.01, n_max=0.01)
+        # )
+        # imu_accel = ObsTerm(
+        #     func=mdp.imu_lin_acc,
+        #     params={"asset_cfg": SceneEntityCfg("imu")},
+        #     noise=Unoise(n_min=-0.1, n_max=0.1)
+        # )
 
         def __post_init__(self) -> None:
             self.enable_corruption = True
@@ -235,7 +232,7 @@ class EventCfg:
         func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_gripper"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="gripper"),
             "mass_distribution_params": (0.0, 0.5),
             "operation": "add",
         },
@@ -305,13 +302,13 @@ class RewardsCfg:
     # 奖励机器人跟踪xy平面线速度命令的表现
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
     # 奖励机器人跟踪绕z轴角速度命令的表现
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp,
-        weight=0.5,
+        weight=1.0,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
     # -- penalties
@@ -328,7 +325,7 @@ class RewardsCfg:
     # 奖励足部离地时间，鼓励机器人抬脚行走
     feet_air_time = RewTerm(
         func=mdp.feet_air_time,
-        weight=0.125,
+        weight=0.25,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*foot"),
             "command_name": "base_velocity",
@@ -358,12 +355,28 @@ class RewardsCfg:
     # 惩罚机器人身体高度过低（接近爬行）的行为
     base_height_penalty = RewTerm(
         func=mdp.base_height_penalty,
-        weight=-1.0,
+        weight=-0.1,
         params={
             "min_height": 0.2,
-            "penalty_weight": 1.0,
         },
     )
+    # # 基于地形高度的基座高度惩罚：使用 height_scanner 的 ray_hits 计算局部地形高度
+    # base_height_above_terrain = RewTerm(
+    #     func=mdp.base_height_above_terrain,
+    #     weight=-1.0,
+    #     params={
+    #         "sensor_cfg": SceneEntityCfg("height_scanner"),
+    #         "min_height": 0.18
+    #     },
+    # )
+    # # 惩罚脚滑（当脚接触地面且有滑移时）
+    # feet_slide = RewTerm(
+    #     func=mdp.feet_slide,
+    #     weight=-0.05,
+    #     params={
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*foot"),
+    #     },
+    # )
 
 
 @configclass
@@ -376,6 +389,22 @@ class TerminationsCfg:
         func=mdp.illegal_contact,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"),
+            "threshold": 1.0,
+        },
+    )
+    # (2) Base contact
+    base_contact = DoneTerm(
+        func=mdp.illegal_contact,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"),
+            "threshold": 1.0,
+        },
+    )
+    # (2) Arm contact
+    arm_contact = DoneTerm(
+        func=mdp.illegal_contact,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*(ebow|gripper|arm|jaw|arm_base)"),
             "threshold": 1.0,
         },
     )
@@ -399,7 +428,13 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(0.0, 1.0),
+            lin_vel_y=(-1.0, 1.0),
+            ang_vel_z=(-1.0, 1.0),
+            heading=(
+                -math.pi / 2.0,
+                math.pi / 2.0
+            ),
         ),
     )
 
@@ -464,20 +499,21 @@ class ArmDogRoughEnvCfg(BasicControlEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
+        self.scene.num_envs = 3800
 
-        self.scene.robot = ARMDOG_CFG.replace(prim_path="{ENV_REGEX_NS}/ArmDog")
+        self.scene.robot = ARMDOG_SINGLE_CFG.replace(prim_path="{ENV_REGEX_NS}/ArmDog")
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/ArmDog/base"
         # scale down the terrains because the robot is small
-        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (
-            0.025,
-            0.1,
-        )
-        self.scene.terrain.terrain_generator.sub_terrains[
-            "random_rough"
-        ].noise_range = (0.01, 0.06)
-        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = (
-            0.01
-        )
+        # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (
+        #     0.025,
+        #     0.1,
+        # )
+        # self.scene.terrain.terrain_generator.sub_terrains[
+        #     "random_rough"
+        # ].noise_range = (0.01, 0.06)
+        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = (
+        #     0.01
+        # )
 
         # reduce action scale
         self.actions.joint_pos.scale = 0.25

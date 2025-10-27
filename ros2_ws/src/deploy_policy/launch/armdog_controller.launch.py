@@ -24,6 +24,10 @@ def generate_launch_description():
             "use_sim_time",
             default_value="True",
             description="Use simulation (Omniverse Isaac Sim) clock if true"),
+        DeclareLaunchArgument(
+            "dog_type",
+            default_value="single",
+            description="Dog type: single or dual"),
         Node(
             package='deploy_policy',
             executable='armdog_controller.py',

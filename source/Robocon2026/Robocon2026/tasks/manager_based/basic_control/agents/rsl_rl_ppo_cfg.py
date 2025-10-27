@@ -9,11 +9,11 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 
 @configclass
-class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class ArmDogRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
-    max_iterations = 1500
+    max_iterations = 6000
     save_interval = 50
-    experiment_name = "cartpole_direct"
+    experiment_name = "armdog_basic_control_rough"
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
         actor_obs_normalization=False,
@@ -39,7 +39,7 @@ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class ArmDogFlatPPORunnerCfg(PPORunnerCfg):
+class ArmDogFlatPPORunnerCfg(ArmDogRoughPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 

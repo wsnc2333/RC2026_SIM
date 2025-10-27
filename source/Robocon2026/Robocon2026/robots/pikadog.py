@@ -5,11 +5,11 @@ from Robocon2026.utils.utils import euler2quaternion
 import isaaclab.sim as sim_utils
 
 
-"""Configuration for the Armdog robot: two SO101 arms fixed on a Unitree Go2."""
+"""Configuration for the Pikadog robot: two SO101 arms fixed on a Unitree Go2."""
 
-ARMDOG_CFG = ArticulationCfg(
+PIKADOG_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="assets/ArmDog/armdog.usd",
+        usd_path="assets/ArmDog/pikadog.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

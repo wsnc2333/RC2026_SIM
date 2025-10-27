@@ -16,6 +16,7 @@ class ArmDogController(Node):
 
         self.declare_parameter('publish_period_ms', 5)
         self.declare_parameter('policy_path', 'policy/policy_1/exported/policy.pt')
+        self.declare_parameter('dog_type', 'single')
         self.set_parameters([rclpy.parameter.Parameter('use_sim_time', rclpy.Parameter.Type.BOOL, True)])
 
         self._logger = self.get_logger()
@@ -39,57 +40,94 @@ class ArmDogController(Node):
         self.policy_path = self.get_parameter('policy_path').get_parameter_value().string_value
         self.load_policy()
 
+        self.dog_type = self.get_parameter('dog_type').get_parameter_value().string_value
+
         self._joint_state = JointState()
         self._joint_command = JointState()
         self._cmd_vel = Twist()
         self._imu = Imu()
 
         self._action_scale = 0.25
-        self._previous_action = np.zeros(24)
+        if self.dog_type == 'single':
+            self._previous_action = np.zeros(18)
+        elif self.dog_type == 'dual':
+            self._previous_action = np.zeros(24)
         self._policy_counter = 0
         self._decimation = 1
         self._last_tick_time = self.get_clock().now().nanoseconds * 1e-9
         self.base_lin_vel = np.zeros(3)
         self._dt = 0.0
 
-        self.default_pos = np.array([
-            0.1, -0.1, 0.1, -0.1, 
-            0.8, 0.8, 1.0, 1.0,
-            0.0, 0.0, 
-            -1.5, -1.5, -1.5, -1.5,
-            0.0, 0.0, 
-            0.0, 0.0, 
-            0.0, 0.0, 
-            0.0, 0.0, 
-            0.0, 0.0
-        ])
 
-        self.joint_names = [
-            "FL_hip_joint",
-            "FR_hip_joint",
-            "RL_hip_joint",
-            "RR_hip_joint",
-            "FL_thigh_joint",
-            "FR_thigh_joint",
-            "RL_thigh_joint",
-            "RR_thigh_joint",
-            "front_shoulder_pan",
-            "back_shoulder_pan",
-            "FL_calf_joint",
-            "FR_calf_joint",
-            "RL_calf_joint",
-            "RR_calf_joint",
-            "front_shoulder_lift",
-            "back_shoulder_lift",
-            "front_elbow_flex",
-            "back_elbow_flex",
-            "front_wrist_flex",
-            "back_wrist_flex",
-            "front_wrist_roll",
-            "back_wrist_roll",
-            "front_gripper",
-            "back_gripper"
-        ]
+        if self.dog_type == 'signle':
+            self.default_pos = np.array([
+                0.1, -0.1, 0.1, -0.1, 
+                0.8, 0.8, 1.0, 1.0,
+                0.0, 
+                -1.5, -1.5, -1.5, -1.5,
+                0.0, 0.0, 
+                0.0, 0.0, 
+                0.0, 
+            ])
+            self.joint_names = [
+                "FL_hip_joint",
+                "FR_hip_joint",
+                "RL_hip_joint",
+                "RR_hip_joint",
+                "FL_thigh_joint",
+                "FR_thigh_joint",
+                "RL_thigh_joint",
+                "RR_thigh_joint",
+                "shoulder_pan",
+                "FL_calf_joint",
+                "FR_calf_joint",
+                "RL_calf_joint",
+                "RR_calf_joint",
+                "shoulder_lift",
+                "elbow_flex",
+                "wrist_flex",
+                "wrist_roll",
+                "gripper"
+            ]
+        elif self.dog_type == 'dual':
+            self.default_pos = np.array([
+                0.1, -0.1, 0.1, -0.1, 
+                0.8, 0.8, 1.0, 1.0,
+                0.0, 0.0, 
+                -1.5, -1.5, -1.5, -1.5,
+                0.0, 0.0, 
+                0.0, 0.0, 
+                0.0, 0.0, 
+                0.0, 0.0, 
+                0.0, 0.0
+            ])
+
+            self.joint_names = [
+                "FL_hip_joint",
+                "FR_hip_joint",
+                "RL_hip_joint",
+                "RR_hip_joint",
+                "FL_thigh_joint",
+                "FR_thigh_joint",
+                "RL_thigh_joint",
+                "RR_thigh_joint",
+                "front_shoulder_pan",
+                "back_shoulder_pan",
+                "FL_calf_joint",
+                "FR_calf_joint",
+                "RL_calf_joint",
+                "RR_calf_joint",
+                "front_shoulder_lift",
+                "back_shoulder_lift",
+                "front_elbow_flex",
+                "back_elbow_flex",
+                "front_wrist_flex",
+                "back_wrist_flex",
+                "front_wrist_roll",
+                "back_wrist_roll",
+                "front_gripper",
+                "back_gripper"
+            ]
 
         self._logger.info("ArmDogController initialized")
 
@@ -125,7 +163,7 @@ class ArmDogController(Node):
 
         # Compute final joint positions by adding scaled actions to default positions
         action_pos = self.default_pos + self.action * self._action_scale
-        action_pos[8:10], action_pos[14:24] = np.zeros(2), np.zeros(10)
+        # action_pos[8:10], action_pos[14:24] = np.zeros(2), np.zeros(10)
         self._joint_command.position = action_pos.tolist()
         self._joint_command.velocity = np.zeros(len(self.joint_names)).tolist()
         self._joint_command.effort = np.zeros(len(self.joint_names)).tolist()
@@ -167,7 +205,10 @@ class ArmDogController(Node):
         )
 
         # Initialize observation vector
-        obs = np.zeros(84)
+        if self.dog_type == 'single':
+            obs = np.zeros(66)
+        elif self.dog_type == 'dual':
+            obs = np.zeros(84)
 
         # Fill observation vector components:
         # Base linear velocity (3)
@@ -188,8 +229,12 @@ class ArmDogController(Node):
         obs[9:12] = np.array(velocity_commands)
 
         # Joint states (19 positions + 19 velocities)
-        joint_pos = np.zeros(24)
-        joint_vel = np.zeros(24)
+        if self.dog_type == 'single':
+            joint_pos = np.zeros(18)
+            joint_vel = np.zeros(18)
+        elif self.dog_type == 'dual':
+            joint_pos = np.zeros(24)
+            joint_vel = np.zeros(24)
 
         # Map joint states from message to our ordered arrays
         for i, name in enumerate(self.joint_names):
@@ -199,13 +244,22 @@ class ArmDogController(Node):
                 joint_vel[i] = joint_state.velocity[idx]
 
         # Store joint positions relative to default pose
-        obs[12:36] = joint_pos - self.default_pos
+        if self.dog_type == 'single':
+            obs[12:30] = joint_pos - self.default_pos
+        elif self.dog_type == 'dual':
+            obs[12:36] = joint_pos - self.default_pos
 
         # Store joint velocities
-        obs[36:60] = joint_vel
+        if self.dog_type == 'single':
+            obs[30:48] = joint_vel
+        elif self.dog_type == 'dual':
+            obs[36:60] = joint_vel
 
         # Store previous actions
-        obs[60:84] = self._previous_action
+        if self.dog_type == 'single':
+            obs[48:66] = self._previous_action
+        elif self.dog_type == 'dual':
+            obs[60:84] = self._previous_action
 
         return obs
 

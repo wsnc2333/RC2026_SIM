@@ -20,7 +20,7 @@ from Robocon2026.map.terrains import TERRAINS_CFG
 from Robocon2026.robots.dofbot import DOFBOT_CONFIG
 from Robocon2026.robots.go2 import UNITREE_GO2_CFG
 from Robocon2026.robots.jetbot import JETBOT_CFG
-from Robocon2026.robots.armdog import ARMDOG_CFG
+from Robocon2026.robots.armdog_dual import ARMDOG_DUAL_CFG
 from Robocon2026.utils.utils import euler2quaternion
 from isaaclab.sensors import ImuCfg, CameraCfg, ContactSensorCfg
 
@@ -114,7 +114,7 @@ def create_KFS(color):
 
 @configclass
 class SceneCfg(InteractiveSceneCfg):
-    #* 创建穹顶灯光
+    # * 创建穹顶灯光
     # Domelight = AssetBaseCfg(
     #     prim_path="/World/Light",
     #     spawn=sim_utils.DomeLightCfg(
@@ -122,7 +122,7 @@ class SceneCfg(InteractiveSceneCfg):
     #         color=(0.75, 0.75, 0.75),
     #     ),
     # )
-    #* 创建远光灯
+    # * 创建远光灯
     # Distantlight = AssetBaseCfg(
     #     prim_path="/World/Light",
     #     spawn=sim_utils.DistantLightCfg(
@@ -131,7 +131,7 @@ class SceneCfg(InteractiveSceneCfg):
     #         angle=20.0,
     #     ),
     # )
-    #* 创建天空
+    # * 创建天空
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
         spawn=sim_utils.DomeLightCfg(
@@ -139,12 +139,12 @@ class SceneCfg(InteractiveSceneCfg):
             texture_file="assets/Matrials/kloofendal_43d_clear_puresky_4k.hdr",
         ),
     )
-    #* 创建 Robocon 2026 地图
+    # * 创建 Robocon 2026 地图
     Robocon2026map = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Robocon2026Map",
         spawn=sim_utils.UsdFileCfg(usd_path="assets/Map/robocon2026.usd"),
     )
-    #* 创建地形
+    # * 创建地形
     # terrain = TerrainImporterCfg(
     #     prim_path="/World/ground",
     #     terrain_type="generator",
@@ -164,21 +164,21 @@ class SceneCfg(InteractiveSceneCfg):
     #     ),
     #     debug_vis=False,
     # )
-    #* 创建 Dofbot
+    # * 创建 Dofbot
     # Dofbot = DOFBOT_CONFIG.replace(
     #     prim_path="{ENV_REGEX_NS}/Dofbot"
     # )
-    #* 创建 Go2
+    # * 创建 Go2
     # Go2 = UNITREE_GO2_CFG.replace(
     #     prim_path="{ENV_REGEX_NS}/Go2"
     # )
-    #* 创建 Jetbot
+    # * 创建 Jetbot
     # Jetbot = JETBOT_CFG.replace(
     #     prim_path="{ENV_REGEX_NS}/Jetbot"
     # )
 
-    #* 创建ArmDog
-    Armdog = ARMDOG_CFG.replace(
+    # * 创建ArmDog
+    Armdog = ARMDOG_DUAL_CFG.replace(
         prim_path="{ENV_REGEX_NS}/ArmDog",
     )
     Imu = ImuCfg(prim_path="{ENV_REGEX_NS}/ArmDog/imu", debug_vis=True)
